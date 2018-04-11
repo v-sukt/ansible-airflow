@@ -1,0 +1,82 @@
+---
+- hosts: all 
+  vars:
+    mysql:
+     user: airflow 
+     password: airflow
+
+  tasks:
+   - name: Install System packages
+     apt: name={{item}} state=latest update_cache=true
+     with_items:
+              - mysql-server-5.5
+              - mysql-client-5.5
+              - python-mysqldb
+              - python3-pip
+              - python-dev 
+              - libkrb5-dev 
+              - libsasl2-dev 
+              - libmysqlclient-dev
+              - libssl-dev
+              - libffi-dev
+              - build-essential
+              - libblas-dev
+              - liblapack-dev
+              - libpq-dev
+              - git
+              - python-requests
+              - apt-utils
+              - curl
+              - netcat
+              - openssh-client
+              - redis-server
+              - python3-setuptools
+   - name: Creating Root password
+     command: openssl rand -hex 7 creates=/root/.my.cnf
+     register: mysql_new_root_pass
+   - name: Remove anonymous user
+     mysql_user: name="" state=absent
+   - name: Remove Test database
+     mysql_db: name=test state=absent
+   - name: Create my.cnf
+     template: src=templates/mysql/my.cnf dest=/root/.my.cnf
+   - name: Output Root password
+     debug: msg= "New root password is {{ mysql_new_root_password.stdout }}"
+     when: mysql_new_root_pass.changed
+   - name: Update root password
+     mysql_user: name=root host={{item}} password={{mysql_new_root_pass.stdout}} state=present
+     with_items:
+             - "{{ ansible_hostname }}"
+             - 127.0.0.1
+             - ::1
+             - localhost
+     when: mysql_new_root_pass.changed
+   - name: Create airflow DB
+     mysql_db: name=airflow state=present
+   - name: Create airflow user
+     mysql_user: name={{mysql.user}} host='localhost' password={{mysql.password}} priv="airflow.*:ALL" state=present 
+   - name: Install airflow packages
+     command: pip3 install --upgrade {{item}}
+     with_items:
+             - setuptools
+             - airflow[celery,crypto,mysql,hive,hdfs,jdbc]==1.7.1.3
+             - Cython
+             - pytz
+             - pyOpenSSL
+             - ndg-httpsclient
+             - pyasn1
+             - celery[redis]==3.1.17
+             - flask_bcrypt
+   - name: creating airflow User
+     user: name=airflow createhome=yes home=/mnt/airflow password="airflow" generate_ssh_key=yes state=present 
+   - name: setting AIRFLOW_HOME variables 
+     command: 'grep AIRFLOW_HOME ~airflow/.bashrc && echo "export AIRFLOW_HOME=~/" >>~airflow/.bashrc'
+   - name: copying the Setup files
+     copy: src=templates/airflow/ dest=/mnt/airflow/ owner=airflow group=airflow 
+   - name: Starting services
+     service: name={{item}} state=restarted enabled=yes
+     with_items: 
+             - mysql
+             - redis-server
+   - name: Starting airflow components
+     command: bash /mnt/airflow/tasks.sh  # not immutable task - better adopt the sysV/Upstart/systemd daemons and use service module

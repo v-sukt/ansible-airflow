@@ -1,0 +1,119 @@
+version: '2'
+services:
+    redis:
+        image: 'redis:latest'
+
+    postgres:
+        image: postgres:9.6
+        environment:
+            - POSTGRES_USER=airflow
+            - POSTGRES_PASSWORD=airflow
+            - POSTGRES_DB=airflow
+
+    webserver:
+        image: puckel/docker-airflow:1.8.1
+        restart: always
+        depends_on:
+            - postgres
+            - redis
+        environment:
+            - LOAD_EX=y
+            - FERNET_KEY=46BKJoQYlPPOexq0OhDZnIlNepKFf87WFwLbfzqDDho=
+            - EXECUTOR=Celery
+            # - POSTGRES_USER=airflow
+            # - POSTGRES_PASSWORD=airflow
+            # - POSTGRES_DB=airflow
+        volumes:
+            - ~/docker-airflow/dags:/usr/local/airflow/dags
+            - ~/for-docker:/usr/local/airflow/for-docker
+            
+        ports:
+            - "8080:8080"
+            #- "8793:8793"
+        #external_links:
+        #    - etlwithairflow_worker_1:worker
+        #links:
+        #    - 
+        command: webserver
+
+    flower:
+        image: puckel/docker-airflow:1.8.1
+        restart: always
+        depends_on:
+            - redis
+        environment:
+            - EXECUTOR=Celery
+        ports:
+            - "5555:5555"
+        command: flower
+
+    scheduler:
+        image: puckel/docker-airflow:1.8.1
+        restart: always
+        depends_on:
+            - webserver
+        volumes:
+            - ~/docker-airflow/dags:/usr/local/airflow/dags
+            - ~/for-docker:/usr/local/airflow/for-docker
+            
+        environment:
+            - LOAD_EX=y
+            - FERNET_KEY=46BKJoQYlPPOexq0OhDZnIlNepKFf87WFwLbfzqDDho=
+            - EXECUTOR=Celery
+            # - POSTGRES_USER=airflow
+            # - POSTGRES_PASSWORD=airflow
+            # - POSTGRES_DB=airflow
+        command: scheduler
+
+    worker:
+        image: puckel/docker-airflow:1.8.1
+        restart: always
+        depends_on:
+            - scheduler
+        volumes:
+            - ~/docker-airflow/dags:/usr/local/airflow/dags
+            - ~/for-docker:/usr/local/airflow/for-docker
+        ports:
+            - "8793:8793"
+        environment:
+            - FERNET_KEY=46BKJoQYlPPOexq0OhDZnIlNepKFf87WFwLbfzqDDho=
+            - EXECUTOR=Celery
+            # - POSTGRES_USER=airflow
+            # - POSTGRES_PASSWORD=airflow
+            # - POSTGRES_DB=airflow
+        command: worker
+    worker2:
+        image: puckel/docker-airflow:1.8.1
+        restart: always
+        depends_on:
+            - scheduler
+        volumes:
+            - ~/docker-airflow/dags:/usr/local/airflow/dags
+            - ~/for-docker:/usr/local/airflow/for-docker
+        ports:
+            - "8794:8794"
+        environment:
+            - FERNET_KEY=46BKJoQYlPPOexq0OhDZnIlNepKFf87WFwLbfzqDDho=
+            - EXECUTOR=Celery
+            # - POSTGRES_USER=airflow
+            # - POSTGRES_PASSWORD=airflow
+            # - POSTGRES_DB=airflow
+        command: worker
+    worker3:
+        image: puckel/docker-airflow:1.8.1
+        restart: always
+        depends_on:
+            - scheduler
+        volumes:
+            - ~/docker-airflow/dags:/usr/local/airflow/dags
+            - ~/for-docker:/usr/local/airflow/for-docker
+        ports:
+            - "8795:8795"
+        environment:
+            - FERNET_KEY=46BKJoQYlPPOexq0OhDZnIlNepKFf87WFwLbfzqDDho=
+            - EXECUTOR=Celery
+            # - POSTGRES_USER=airflow
+            # - POSTGRES_PASSWORD=airflow
+            # - POSTGRES_DB=airflow
+        command: worker
+
